@@ -243,8 +243,32 @@
     font-family: 'SF Mono', monospace;
     transition: border-color 0.15s;
   }
-  .bg-url-input:focus { border-color: var(--jade); }
-  .bg-url-input::placeholder { color: var(--text-dim); font-size: 11px; }
+  .bg-file-input {
+    flex: 1;
+    background: var(--track);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .bg-file-input::file-selector-button {
+    background: var(--jade-dark);
+    color: var(--jade-bright);
+    border: none;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+  .bg-file-input:focus { border-color: var(--jade); }
   .bg-load-btn {
     padding: 6px 14px;
     font-size: 10px;
@@ -304,9 +328,9 @@
 </div>
 
 <div class="bg-url-row">
-  <span class="bg-url-label">BG Image URL</span>
-  <input type="text" id="bg_url" class="bg-url-input" placeholder="https://... (leave empty for procedural)" value="">
-  <button id="bg_load" class="bg-load-btn">Load</button>
+  <span class="bg-url-label">BG Image</span>
+  <input type="file" id="bg_file" accept="image/*" class="bg-file-input">
+  <button id="bg_clear" class="bg-load-btn">Reset</button>
 </div>
 
 <div class="tabs">
@@ -847,12 +871,29 @@ function loadBgImage(url) {
   img.src = url;
 }
 
-document.getElementById('bg_load').addEventListener('click', () => {
-  const url = document.getElementById('bg_url').value.trim();
-  loadBgImage(url);
+document.getElementById('bg_clear').addEventListener('click', () => {
+  bgType = 0;
+  gl.uniform1f(uBgType, 0.0);
+  render();
 });
-document.getElementById('bg_url').addEventListener('keydown', e => {
-  if (e.key === 'Enter') loadBgImage(e.target.value.trim());
+
+document.getElementById('bg_file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    bgType = 1;
+    gl.uniform1f(uBgType, 1.0);
+    render();
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
 });
 
 const buf = gl.createBuffer();
