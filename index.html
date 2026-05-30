@@ -214,7 +214,54 @@
     background: var(--jade-dark);
   }
 
-  /* ── Sub-label / hint ─────────────────────────────── */
+  /* ── BG URL row ─────────────────────────────────────────── */
+  .bg-url-row {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .bg-url-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .bg-url-input {
+    flex: 1;
+    background: var(--track);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    font-family: 'SF Mono', monospace;
+    transition: border-color 0.15s;
+  }
+  .bg-url-input:focus { border-color: var(--jade); }
+  .bg-url-input::placeholder { color: var(--text-dim); font-size: 11px; }
+  .bg-load-btn {
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--jade-dark);
+    color: var(--jade-bright);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .bg-load-btn:hover { background: var(--jade); }
+
+  /* ── Sub-label / hint ────────────────────────────────── */
   .ctrl-hint {
     font-size: 9px;
     color: var(--text-dim);
@@ -254,6 +301,12 @@
 
 <div class="canvas-wrap">
   <canvas id="c" width="720" height="450"></canvas>
+</div>
+
+<div class="bg-url-row">
+  <span class="bg-url-label">BG Image URL</span>
+  <input type="text" id="bg_url" class="bg-url-input" placeholder="https://... (leave empty for procedural)" value="">
+  <button id="bg_load" class="bg-load-btn">Load</button>
 </div>
 
 <div class="tabs">
@@ -576,6 +629,8 @@ uniform float u_vign;
 uniform float u_bgb;
 uniform float u_border;
 uniform float u_seed;
+uniform sampler2D u_bg_tex;
+uniform float u_bg_type; // 0=procedural, 1=texture
 
 #define PI 3.14159265358979
 
@@ -598,6 +653,10 @@ float noise(vec2 p) {
 
 /* ── procedural background ──────────────────────────────────── */
 vec3 bg(vec2 uv) {
+  if (u_bg_type > 0.5) {
+    // Flip Y since WebGL textures are bottom-up but canvas is top-down
+    return texture2D(u_bg_tex, vec2(uv.x, 1.0 - uv.y)).rgb * u_bgb;
+  }
   float g = uv.x*0.07 + uv.y*0.03;
   float b = uv.x*0.04 + uv.y*0.05;
   float r2= uv.x*0.02 + uv.y*0.03;
@@ -745,6 +804,57 @@ const prog = createProgram(VS, FS);
 gl.useProgram(prog);
 const u = Uniforms(prog);
 
+// ── BG Texture ────────────────────────────────────────────────────
+let bgTexture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+// 1×1 placeholder (dark gray) so shader doesn't sample uninitialized memory
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+              new Uint8Array([20, 22, 28, 255]));
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+const uBgTex  = gl.getUniformLocation(prog, 'u_bg_tex');
+const uBgType = gl.getUniformLocation(prog, 'u_bg_type');
+let bgType = 0; // 0=procedural, 1=texture
+
+function loadBgImage(url) {
+  if (!url) {
+    bgType = 0;
+    gl.uniform1f(uBgType, 0.0);
+    render();
+    return;
+  }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    bgType = 1;
+    gl.uniform1f(uBgType, 1.0);
+    render();
+  };
+  img.onerror = () => {
+    console.warn('Failed to load BG image:', url);
+    bgType = 0;
+    gl.uniform1f(uBgType, 0.0);
+    render();
+  };
+  img.src = url;
+}
+
+document.getElementById('bg_load').addEventListener('click', () => {
+  const url = document.getElementById('bg_url').value.trim();
+  loadBgImage(url);
+});
+document.getElementById('bg_url').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadBgImage(e.target.value.trim());
+});
+
 const buf = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, buf);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -812,6 +922,8 @@ function render() {
   gl.uniform1f(u.u_vign,     P.vign);
   gl.uniform1f(u.u_bgb,     P.bgb);
   gl.uniform1f(u.u_seed,    Math.random() * 100.0);
+  gl.uniform1i(uBgTex, 0);
+  gl.uniform1f(uBgType, bgType);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
