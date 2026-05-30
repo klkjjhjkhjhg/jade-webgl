@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jade Glass Control — WebGL</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0f14;
+    --panel: #151820;
+    --panel2: #1c2030;
+    --border: #2a3050;
+    --accent: #3a7a50;
+    --accent2: #5aaf70;
+    --text: #c8d0e0;
+    --dim: #606880;
+    --jade: #3aaa60;
+    --jade2: #60cc80;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'SF Pro Display', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px 16px;
+    gap: 20px;
+  }
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--jade2);
+    letter-spacing: 0.03em;
+    text-align: center;
+  }
+  h1 span { color: var(--dim); font-weight: 400; font-size: 0.85rem; }
+  .canvas-wrap {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(50,180,90,0.06);
+  }
+  canvas { display: block; width: 100%; height: auto; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    width: 100%;
+    max-width: 680px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 32px;
+  }
+  .ctrl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ctrl label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ctrl label .val {
+    color: var(--jade2);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 0.78rem;
+    min-width: 48px;
+    text-align: right;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--panel2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--jade);
+    border: 2px solid var(--jade2);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--jade);
+    border: 2px solid var(--jade2);
+    cursor: pointer;
+  }
+  .hint {
+    font-size: 0.68rem;
+    color: var(--dim);
+    text-align: center;
+    margin-top: -8px;
+  }
+  @media (max-width: 540px) {
+    .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<h1>🟩 Jade Glass Control <span>— WebGL Shader</span></h1>
+
+<div class="canvas-wrap">
+  <canvas id="c" width="640" height="400"></canvas>
+</div>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>Aspect Ratio <span class="val" id="v_aspect">1.96</span></label>
+    <input type="range" id="s_aspect" min="0.5" max="4.0" step="0.01" value="1.96">
+  </div>
+  <div class="ctrl">
+    <label>Control Scale <span class="val" id="v_scale">1.00</span></label>
+    <input type="range" id="s_scale" min="0.3" max="2.0" step="0.01" value="1.00">
+  </div>
+  <div class="ctrl">
+    <label>Corner Radius <span class="val" id="v_radius">0.055</span></label>
+    <input type="range" id="s_radius" min="0.01" max="0.20" step="0.001" value="0.055">
+  </div>
+  <div class="ctrl">
+    <label>IOR <span class="val" id="v_ior">1.52</span></label>
+    <input type="range" id="s_ior" min="1.20" max="2.00" step="0.01" value="1.52">
+  </div>
+  <div class="ctrl">
+    <label>Jade Hue <span class="val" id="v_hue">0°</span></label>
+    <input type="range" id="s_hue" min="-180" max="180" step="1" value="0">
+  </div>
+  <div class="ctrl">
+    <label>Thickness <span class="val" id="v_thick">0.060</span></label>
+    <input type="range" id="s_thick" min="0.005" max="0.12" step="0.001" value="0.060">
+  </div>
+  <div class="ctrl">
+    <label>SSS Strength <span class="val" id="v_sss">0.65</span></label>
+    <input type="range" id="s_sss" min="0.0" max="1.5" step="0.01" value="0.65">
+  </div>
+  <div class="ctrl">
+    <label>Glassiness <span class="val" id="v_glass">0.50</span></label>
+    <input type="range" id="s_glass" min="0.0" max="1.0" step="0.01" value="0.50">
+  </div>
+</div>
+
+<p class="hint">实时渲染 · 拖动滑杆即时更新 · WebGL fragment shader</p>
+
+<script>
+/* ====================================================================
+   WebGL Jade Glass Control — fragment-shader port of jade_demo.py
+   ==================================================================== */
+
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
+if (!gl) { alert('WebGL not supported'); }
+
+// ── helpers ──────────────────────────────────────────────────────────
+function compileShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function createProgram(vsrc, fsrc) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compileShader(gl.VERTEX_SHADER, vsrc));
+  gl.attachShader(p, compileShader(gl.FRAGMENT_SHADER, fsrc));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS))
+    throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+function Uniforms(prog) {
+  const u = {};
+  const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) {
+    const info = gl.getActiveUniform(prog, i);
+    u[info.name] = gl.getUniformLocation(prog, info.name);
+  }
+  return u;
+}
+
+// ── vertex shader ────────────────────────────────────────────────────
+const VS = `
+attribute vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+`;
+
+// ── fragment shader ──────────────────────────────────────────────────
+const FS = `
+precision highp float;
+
+uniform vec2  u_res;
+uniform float u_aspect;
+uniform float u_scale;
+uniform float u_half_w;
+uniform float u_half_h;
+uniform float u_radius;
+uniform float u_ior;
+uniform float u_hue;
+uniform float u_thick_center;
+uniform float u_sss;
+uniform float u_glassiness;
+uniform float u_seed;
+
+#define PI 3.14159265358979
+
+/* ── HSL → RGB ─────────────────────────────────────────────────── */
+vec3 hsl2rgb(vec3 c) {
+  vec3 rgb = clamp(abs(mod(c.x*6.0 + vec3(0.0,4.0,2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0*c.z - 1.0));
+}
+
+/* ── hash / noise ───────────────────────────────────────────────── */
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),          hash(i+vec2(1,0)), f.x),
+             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+}
+
+/* ── procedural background ─────────────────────────────────────── */
+vec3 bg(vec2 uv) {
+  float g = uv.x*0.07 + uv.y*0.03;
+  float b = uv.x*0.04 + uv.y*0.05;
+  float r2= uv.x*0.02 + uv.y*0.03;
+  vec3 c = vec3(g*0.6 + 0.03, b*0.5 + 0.03, r2*0.4 + 0.03);
+  float cx = 0.5, cy = 0.45;
+  float dist = length((uv - vec2(cx, cy)) * vec2(u_res.x/u_res.y, 1.0));
+  c += vec3(0.25, 0.35, 0.20) * exp(-dist*4.0) * 0.40;
+  return clamp(c, 0.0, 1.0);
+}
+
+/* ── rounded-box SDF (2D) ───────────────────────────────────────── */
+float sdRoundBox(vec2 p, float hw, float hh, float r) {
+  vec2 q = abs(p) - vec2(hw - r, hh - r);
+  float interior = min(max(q.x, q.y), 0.0);
+  float exterior = length(max(q, 0.0));
+  return interior + exterior - r;
+}
+
+/* ── thickness + normal ─────────────────────────────────────────── */
+float jadeThickness(vec2 p) {
+  float d = abs(sdRoundBox(p, u_half_w, u_half_h, u_radius));
+  // Linear ramp: center 0.060 → edge 0.008
+  float t = u_thick_center - d * (u_thick_center - 0.008) / 0.18;
+  return clamp(t, 0.008, u_thick_center);
+}
+vec2 jadeNormal2D(vec2 p) {
+  float eps = 0.0002;
+  float dx = (sdRoundBox(p+vec2(eps,0.0), u_half_w, u_half_h, u_radius) -
+               sdRoundBox(p-vec2(eps,0.0), u_half_w, u_half_h, u_radius)) / (2.0*eps);
+  float dy = (sdRoundBox(p+vec2(0.0,eps), u_half_w, u_half_h, u_radius) -
+               sdRoundBox(p-vec2(0.0,eps), u_half_w, u_half_h, u_radius)) / (2.0*eps);
+  return normalize(vec2(dx, dy));
+}
+
+/* ── Fresnel (Schlick) ──────────────────────────────────────────── */
+float fresnel(float cosT, float F0) {
+  return F0 + (1.0-F0) * pow(1.0 - clamp(cosT, 0.0, 1.0), 5.0);
+}
+
+/* ── jade glass shading ─────────────────────────────────────────── */
+vec3 shadeJade(vec2 p, vec2 n2d, float thick) {
+  // Build 3D normal (Z component from 2D)
+  float nz = sqrt(clamp(1.0 - dot(n2d, n2d), 0.0, 1.0));
+  vec3 N3 = vec3(n2d, nz);
+
+  // View direction
+  vec3 V = vec3(0.0, 0.0, 1.0);
+  float cosT = dot(N3, V);
+
+  // Fresnel
+  float F0 = pow((u_ior - 1.0) / (u_ior + 1.0), 2.0);
+  float fr = fresnel(cosT, F0);
+
+  // ── Reflection ──────────────────────────────────────────────────
+  vec3 R = 2.0 * dot(N3, V) * N3 - V;
+  vec2 reflUV = clamp(p + normalize(R.xy) * 0.02, 0.0, 1.0);
+  vec3 reflColor = bg(reflUV);
+
+  // ── Refraction + Beer-Lambert ────────────────────────────────────
+  // Simplified: 2D refraction offset
+  float eta = 1.0 / u_ior;
+  vec2 refractOffset = n2d * (eta - 1.0) * 0.08;
+  vec2 refractUV = clamp(p + refractOffset, 0.0, 1.0);
+  vec3 refractBg = bg(refractUV);
+
+  // Beer-Lambert absorption: R>G absorption (jade red absorption)
+  vec3 absorption = vec3(0.65, 0.10, 0.50);
+  vec3 transmitted = exp(-absorption * thick * 12.0);
+
+  // Jade base color (with hue shift)
+  float hue = mod(u_hue / 360.0 + 0.33, 1.0);
+  vec3 jadeHSL = vec3(hue, 0.75, 0.18);
+  vec3 jadeCol = hsl2rgb(jadeHSL) * 0.35;
+
+  vec3 refractionColor = refractBg + jadeCol * transmitted;
+
+  // ── SSS ──────────────────────────────────────────────────────────
+  // Internal scattering direction
+  vec3 Tdir = normalize(vec3(n2d * 0.4, 1.0));
+  float alignment = clamp(dot(V.xy, Tdir.xy) * 0.5 + 0.5, 0.0, 1.0);
+  float sssAtten = exp(-thick * 5.0);
+  vec3 sssColor = vec3(0.55, 0.82, 0.32) * alignment * sssAtten * u_sss;
+
+  // ── Specular (Phong) ──────────────────────────────────────────────
+  vec3 L = normalize(vec3(0.55, 0.65, 0.0));
+  vec3 H = normalize(L + V);
+  float spec = pow(clamp(dot(N3, H), 0.0, 1.0), 32.0);
+  vec3 specColor = spec * vec3(0.3, 0.95, 0.5) * 0.30;
+
+  // ── Ambient ──────────────────────────────────────────────────────
+  vec3 ambient = vec3(0.90, 0.95, 1.0) * 0.05;
+
+  // ── Composite ────────────────────────────────────────────────────
+  float glassMix = u_glassiness;
+  vec3 result = ambient
+    + fr * (reflColor + specColor * 0.3)
+    + (1.0 - fr) * refractionColor * glassMix
+    + sssColor
+    + specColor;
+
+  return clamp(result, 0.0, 1.0);
+}
+
+/* ── main ───────────────────────────────────────────────────────── */
+void main() {
+  vec2 fc = gl_FragCoord.xy;
+  vec2 uv = fc / u_res;           // [0,1]
+  float asp = u_res.x / u_res.y;
+
+  // World coords: x∈[-asp, asp], y∈[-1,1]
+  vec2 coord = (uv * 2.0 - 1.0) * vec2(asp, 1.0);
+
+  // Control half-size (scaled)
+  float hw = u_half_w * u_scale;
+  float hh = u_half_h * u_scale;
+
+  // SDF
+  float d = sdRoundBox(coord, hw, hh, u_radius);
+  float hit = step(d, 0.0);  // 1 inside, 0 outside
+
+  // Background
+  vec3 color = bg(uv);
+
+  // Shade jade region
+  if (hit > 0.5) {
+    vec2 n2d = jadeNormal2D(coord);
+    float thick = jadeThickness(coord);
+    vec3 jcol = shadeJade(uv, n2d, thick);
+
+    // Edge softening: blend at boundary
+    float soft = smoothstep(0.0, 0.003, -d);
+    color = mix(color, jcol, hit * soft);
+  }
+
+  // ── Post-processing ──────────────────────────────────────────────
+  // Vignette
+  vec2 vd = coord / vec2(asp, 1.0);
+  float vign = 1.0 - dot(vd, vd) * 0.30;
+  color *= vign;
+
+  // tone remap + gamma
+  color = clamp(color, 0.0, 1.0);
+  color = (color - 0.02) / (1.05 - 0.02);
+  color = pow(color, vec3(0.5));
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+// ── compile ─────────────────────────────────────────────────────────
+const prog = createProgram(VS, FS);
+gl.useProgram(prog);
+const u = Uniforms(prog);
+
+// fullscreen quad
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'a_pos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+// ── params ───────────────────────────────────────────────────────────
+const P = {
+  aspect:  1.96,
+  scale:   1.00,
+  radius:  0.055,
+  ior:     1.52,
+  hue:     0,
+  thick:   0.060,
+  sss:     0.65,
+  glass:   0.50,
+};
+
+// defaults from jade_demo.py: half_w=0.275, half_h=0.140
+const BASE_HW = 0.275;
+const BASE_HH = 0.140;
+
+// ── render ───────────────────────────────────────────────────────────
+function render() {
+  const W = canvas.width, H = canvas.height;
+  gl.viewport(0, 0, W, H);
+  gl.uniform2f(u.u_res, W, H);
+  gl.uniform1f(u.u_aspect, P.aspect);
+  gl.uniform1f(u.u_scale,  P.scale);
+  gl.uniform1f(u.u_half_w,  BASE_HW);
+  gl.uniform1f(u.u_half_h,  BASE_HH);
+  gl.uniform1f(u.u_radius,  P.radius);
+  gl.uniform1f(u.u_ior,     P.ior);
+  gl.uniform1f(u.u_hue,     P.hue);
+  gl.uniform1f(u.u_thick_center, P.thick);
+  gl.uniform1f(u.u_sss,     P.sss);
+  gl.uniform1f(u.u_glassiness, P.glass);
+  gl.uniform1f(u.u_seed,    Math.random() * 100.0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// ── sliders ─────────────────────────────────────────────────────────
+const sliders = [
+  { id: 's_aspect', val: 'v_aspect', key: 'aspect',  fmt: v => v.toFixed(2) },
+  { id: 's_scale',  val: 'v_scale',  key: 'scale',   fmt: v => v.toFixed(2) },
+  { id: 's_radius', val: 'v_radius', key: 'radius',  fmt: v => v.toFixed(3) },
+  { id: 's_ior',    val: 'v_ior',    key: 'ior',      fmt: v => v.toFixed(2) },
+  { id: 's_hue',    val: 'v_hue',    key: 'hue',      fmt: v => v.toFixed(0) + '°' },
+  { id: 's_thick',  val: 'v_thick',  key: 'thick',    fmt: v => v.toFixed(3) },
+  { id: 's_sss',    val: 'v_sss',    key: 'sss',      fmt: v => v.toFixed(2) },
+  { id: 's_glass',  val: 'v_glass',  key: 'glass',    fmt: v => v.toFixed(2) },
+];
+
+sliders.forEach(({ id, val, key, fmt }) => {
+  const el = document.getElementById(id);
+  const lbl = document.getElementById(val);
+  el.addEventListener('input', () => {
+    P[key] = parseFloat(el.value);
+    lbl.textContent = fmt(P[key]);
+    render();
+  });
+});
+
+// ── resize ───────────────────────────────────────────────────────────
+function resize() {
+  const wrap = canvas.parentElement;
+  const mw = Math.min(wrap.clientWidth, 680);
+  canvas.width  = mw;
+  canvas.height = Math.round(mw * (400 / 640));
+  render();
+}
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
