@@ -678,8 +678,9 @@ float noise(vec2 p) {
 /* ── procedural background ──────────────────────────────────── */
 vec3 bg(vec2 uv) {
   if (u_bg_type > 0.5) {
-    // Flip Y since WebGL textures are bottom-up but canvas is top-down
-    return texture2D(u_bg_tex, vec2(uv.x, 1.0 - uv.y)).rgb * u_bgb;
+    // Use texture() — works for any texture unit bound to u_bg_tex
+    // uv.x goes 0→1 left to right; 1.0-uv.y because WebGL textures are bottom-up
+    return texture2D(u_bg_tex, vec2(clamp(uv.x, 0.0, 1.0), 1.0 - clamp(uv.y, 0.0, 1.0))).rgb * u_bgb;
   }
   float g = uv.x*0.07 + uv.y*0.03;
   float b = uv.x*0.04 + uv.y*0.05;
